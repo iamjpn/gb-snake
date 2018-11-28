@@ -116,10 +116,10 @@ Start:
     jr nz, .loop 
 
     ; Sprite Attribute Table
-    ld a, $40 ; X POS
+    ld a, $20 ; X POS
     ld [OAMData + 0], a
 
-    ld a, $48 ; Y Pos
+    ld a, $20 ; Y Pos
     ld [OAMData + 1], a
 
     ld a, $00 ; Tile 
@@ -131,10 +131,10 @@ Start:
 
     ; apple 
 Apple: 
-    ld a, $60 ; X POS
+    ld a, $30 ; X POS
     ld [OAMData + $9C], a
 
-    ld a, $60 ; Y Pos
+    ld a, $30 ; Y Pos
     ld [OAMData + $9D], a
 
     ld a, $01 ; Tile 
@@ -185,8 +185,12 @@ Apple:
     jr nz, .outerl
 
     ld a, $0
-    ld [$9c00 + 10], a 
-    ld [$9c00 + (11 * 32) + 10 ], a 
+BG_LINE = 0 
+REPT 20 
+    ld [$9c00 + (BG_LINE * 32) + 10], a 
+BG_LINE = BG_LINE + 1 
+ENDR
+    ; ld [$9c00 + (11 * 32) + 10 ], a 
 
 
     ; turn on LCD
@@ -342,22 +346,69 @@ OutOfBoundsY:
     ; C: Set if no borrow (set if r8 > A).
     cp a, 16
     jp c, DoOutOfBounds
+    cp a, 160
+    jp nc, DoOutOfBounds
 
 OutOfBoundsX:
     ld a, [OAMData + 1] 
     ; C: Set if no borrow (set if r8 > A).
     cp a, 8 
     jp c, DoOutOfBounds
+    cp a, 88 
+    jp nc, DoOutOfBounds
     jp Main
 
     
 DoOutOfBounds:
+    ld c, 0
+    call GameOver
     jp DoOutOfBounds
 
     jp Main
 
+GameOver:
+    halt
+    nop
+
+    ld hl, UPDATEFRAME
+    dec [hl]
+    jr nz, GameOver
+    ld a, $4
+    ld [UPDATEFRAME], a  
+
+    ld a, [SNAKELENGTH]
+    add a, 1
+    cp a, c
+    jp z, .erased
+    ld hl, OAMData
+    ld b, c
+    ld a, c
+    cp a, 0
+    jp z, .loopend
+.smallloop:
+    ld D, 0 
+    ld E, 4 
+    add hl, DE ; hl points to the first byte of last body
+    dec b 
+    jp nz, .smallloop
+.loopend:
+    ld a, [SNAKELENGTH]
+    ld b, a ; b has the count 
+    ld a, 0
+    ld [hli], a
+    ld [hli], a
+    ld [hli], a
+    ld [hli], a
+
+    inc c
+
+    jp GameOver
+
+.erased:
+    jp .erased
 
 
+    ret
 
 VBlankHandler:
     push af
