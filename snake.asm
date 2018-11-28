@@ -1,5 +1,5 @@
 INCLUDE "hardware.inc"
-INCLUDE "tiles.inc"
+INCLUDE "snake_tiles.inc"
 VBlankRAM EQU $FF80
 
 SECTION "OAM Data",WRAM0,ALIGN[8] 
@@ -53,47 +53,14 @@ Start:
     ld [$800f], a
 
     ; Load up a few of our actual tiles 
-    ld hl, TileLabel
+    ld hl, SnakeTiles 
     ld bc, $8000
+REPT SnakeTilesLen
     ld a, [hli]
     ld [bc], a
     inc bc
+ENDR
 
-    ld a, [hli]
-    ld [bc], a
-    inc bc
-
-    ld a, [hli]
-    ld [bc], a
-    inc bc
-
-    ld a, [hli]
-    ld [bc], a
-    inc bc
-
-    ld a, [hli]
-    ld [bc], a
-    inc bc
-
-    ld a, [hli]
-    ld [bc], a
-    inc bc
-
-    ld a, [hli]
-    ld [bc], a
-    inc bc
-
-    ld a, [hli]
-    ld [bc], a
-    inc bc
-
-    ld a, [hli]
-    ld [bc], a
-    inc bc
-
-    ld a, [hli]
-    ld [bc], a
-    inc bc
 
 
 
@@ -137,7 +104,7 @@ Apple:
     ld a, $30 ; Y Pos
     ld [OAMData + $9D], a
 
-    ld a, $01 ; Tile 
+    ld a, $05 ; Tile 
     ld [OAMData + $9E], a
 
     ld a, %000000
@@ -184,7 +151,7 @@ Apple:
     dec c 
     jr nz, .outerl
 
-    ld a, $0
+    ld a, $06
 BG_LINE = 0 
 REPT 20 
     ld [$9c00 + (BG_LINE * 32) + 10], a 
@@ -265,7 +232,8 @@ Main:
     ld [hli], a
     inc de
 
-    ld a, [de]
+    ;ld a, [de]
+    ld a, $02 
     ld [hli], a
     inc de
 
@@ -293,12 +261,57 @@ Main:
     ld a, [XDIRECTION]
     add a,[hl]
     ld [hl], a
+    
+    ; change sprite
+    ld a, [XDIRECTION]
+    ; test negative
+    cp a, 0
+    jp z, .endnegx
+    ld hl, OAMData + 2
+    ld [hl], $00
+    and a, %10000000
+    jr nz, .negx
+    ld hl, OAMData + 3
+    ld a, ~ OAMF_XFLIP 
+    and a, [hl]
+    ld [hl], a
+    jr .endnegx
+.negx:
+    ld hl, OAMData + 3
+    ld a, OAMF_XFLIP 
+    or a, [hl]
+    ld [hl], a
+.endnegx:
 
     ld hl, OAMData
     ld a, [YDIRECTION]
     add a,[hl]
     ld [hl], a
 
+    ; change sprite
+    ld a, [YDIRECTION]
+    ; test negative
+    cp a, 0
+    jp z, .endnegy
+    ld hl, OAMData + 2
+    ld [hl], $01
+    and a, %10000000
+    jr nz, .negy
+    ld hl, OAMData + 3
+    ld a, ~ OAMF_YFLIP 
+    and a, [hl]
+    ld [hl], a
+    jr .endnegy
+.negy:
+    ld hl, OAMData + 3
+    ld a, OAMF_YFLIP 
+    or a, [hl]
+    ld [hl], a
+.endnegy:
+
+
+
+    ; Check if hit an apple
     ld a, [OAMData + 0] 
     ld b, a
     ld a, [OAMData + $9C]
