@@ -10,6 +10,7 @@ XDIRECTION: DS 1
 YDIRECTION: DS 1
 UPDATEFRAME: DS 1
 SNAKELENGTH: DS 1
+RANDSEED: DS 1
 
 SECTION "Inter", ROM0[$40]
 jp VBlankRAM
@@ -131,16 +132,16 @@ Start:
     ; apple 
 Apple: 
     ld a, $60 ; X POS
-    ld [OAMData + $9f], a
+    ld [OAMData + $9C], a
 
     ld a, $60 ; Y Pos
-    ld [OAMData + $A0], a
+    ld [OAMData + $9D], a
 
-    ld a, $00 ; Tile 
-    ld [OAMData + $A1], a
+    ld a, $01 ; Tile 
+    ld [OAMData + $9E], a
 
     ld a, %000000
-    ld [OAMData + $A2], a
+    ld [OAMData + $9F], a
 
 
     ; Pallete
@@ -164,9 +165,33 @@ Apple:
     
     ld bc, VBlankEnd - VBlankHandler
     call Memcpy
-    
+
+    ld a, 0
+    ld [rSCY], a
+    ld [rSCX], a
+
+    ; set background
+    ld a, $1A
+    ld hl, $9c00
+    ld c, 32
+    ld d, 32
+.outerl:
+.innerl:
+    ld [hli], a
+    dec d
+    jr nz, .innerl
+
+    dec c 
+    jr nz, .outerl
+
+    ld a, $0
+    ld [$9c00 + 10], a 
+    ld [$9c00 + (11 * 32) + 10 ], a 
+
+
     ; turn on LCD
-    ld a, LCDCF_ON | LCDCF_OBJON   
+    ld a, LCDCF_ON | LCDCF_OBJON | LCDCF_BG8000 | LCDCF_BGON | LCDCF_BG9C00 
+    
     ld [rLCDC], a
 
     ; interupts
@@ -185,6 +210,13 @@ Apple:
     ld hl, SNAKELENGTH
     ld a, 3 
     ld [hl], a
+TestMult:
+    ld l, 2
+    ld e, 3
+    call Multiply
+SETUPSEED:
+    ld a, 1 
+    ld [RANDSEED], a  
 Main:
     halt
     nop
@@ -263,13 +295,76 @@ Main:
     add a,[hl]
     ld [hl], a
 
-    jr Main
+    ld a, [OAMData + 0] 
+    ld b, a
+    ld a, [OAMData + $9C]
+    cp a, b
+    jp nz, OutOfBoundsY 
+    ld a, [OAMData + 1] 
+    ld b, a
+    ld a, [OAMData + $9D]
+    cp a, b
+    jp nz, OutOfBoundsY
+
+    ld hl, SNAKELENGTH
+    inc [hl]
+
+
+    ; Randomise apple position 
+    ; y 
+    call XorShift
+    ld a, [RANDSEED]
+    and a, 16 
+    ld l, a
+    ld e, $8
+    call Multiply
+    ld a, l
+    add a, 16 
+
+    ld [OAMData + $9C], a
+
+    ; x 
+    call XorShift
+    ld a, [RANDSEED]
+    and a, 9 
+    ld l, a
+    ld e, $8
+    call Multiply
+    ld a, l
+    add a, 8 
+
+    ld [OAMData + $9D], a
+
+
+    ; Check if the snake is moved out of bounds
+OutOfBoundsY:
+    ld a, [OAMData + 0] 
+    ; C: Set if no borrow (set if r8 > A).
+    cp a, 16
+    jp c, DoOutOfBounds
+
+OutOfBoundsX:
+    ld a, [OAMData + 1] 
+    ; C: Set if no borrow (set if r8 > A).
+    cp a, 8 
+    jp c, DoOutOfBounds
+    jp Main
+
+    
+DoOutOfBounds:
+    jp DoOutOfBounds
+
+    jp Main
 
 
 
 
 VBlankHandler:
     push af
+    push bc
+    push de 
+    push hl
+
     ld a,  ~ $01
     ld hl, rIF
     and a, [hl]
@@ -280,6 +375,9 @@ VBlankHandler:
 .wait
     dec a
     jr nz, .wait
+    pop hl
+    pop de
+    pop bc
     pop af
     reti
 VBlankEnd:
@@ -368,6 +466,56 @@ ReadInput:
     ld [hl], 0
 
 .done:
+    ret
+
+
+; x * y
+; x = l
+; y = e 
+; result in hl 
+Multiply:
+    ld a, 0
+.loop
+    add a, e
+    dec l
+    jp nz, .loop
+    ld l, a
+    ret
+
+; RANDSEED updated with new value 
+; destroys a,b, hl
+XorShift:
+    ; y8 ^= (y8 << 7);
+    ; y8 ^= (y8 >> 5);
+    ; return y8 ^= (y8 << 3);
+    ld hl, RANDSEED
+    ld a, [hl] 
+    ld b, $7
+.loop1:
+    sla a 
+    dec b
+    jp nz, .loop1
+
+    xor a, [hl]
+    ld [hl], a
+
+    ld b, $5
+.loop2:
+    sra a 
+    dec b
+    jp nz, .loop2
+        
+    xor a, [hl]
+    ld [hl], a
+
+    ld b, $3
+.loop3:
+    sla a 
+    dec b
+    jp nz, .loop3
+
+    xor a, [hl]
+    ld [hl], a
     ret
 
 
