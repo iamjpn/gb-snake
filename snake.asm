@@ -316,6 +316,7 @@ Main:
 
     ; Randomise apple position 
     ; y 
+.RandApple:
     call XorShift
     ld a, [RANDSEED]
     and a, 16 
@@ -339,6 +340,18 @@ Main:
 
     ld [OAMData + $9D], a
 
+    ; Set up checking for collisions
+    ld bc, OAMData + $9C
+    ld a, [SNAKELENGTH]
+    inc a
+    ld d, a
+    ld hl, OAMData
+    call CheckCollision
+    cp a, 1
+    jp z, .RandApple
+
+
+
 
     ; Check if the snake is moved out of bounds
 OutOfBoundsY:
@@ -356,7 +369,17 @@ OutOfBoundsX:
     jp c, DoOutOfBounds
     cp a, 88 
     jp nc, DoOutOfBounds
-    jp Main
+
+SelfCollision:
+    ld bc, OAMData 
+    ld a, [SNAKELENGTH]
+    ld d, a
+    ld hl, OAMData + 4
+    call CheckCollision
+    cp a, 1
+    jp nz, Main
+    ld c, 0
+    call GameOver
 
     
 DoOutOfBounds:
@@ -568,6 +591,54 @@ XorShift:
     xor a, [hl]
     ld [hl], a
     ret
+
+
+; Take an object we care about comparing with 
+; Begining of objects we want to check 
+; Amount of objects we have  
+; BC = needle 
+; HL = haystack 
+; d = length to check 
+CheckCollision:
+.loop: 
+    ld a, d
+    cp a, 0
+    jp z, .loopend
+    ; check y 
+    ld a, [bc]
+    cp a, [hl] 
+    jp z, .checkx
+    inc hl
+    inc hl
+    inc hl
+    inc hl
+    dec d
+    jr .loop
+
+    ; check x
+.checkx
+    inc c
+    inc hl
+    ld a, [bc]
+    cp a, [hl] 
+    jp z, .hit
+
+    ; ready for the next sprite 
+    dec c
+    inc hl
+    inc hl
+    inc hl
+
+    dec d
+    jp .loop
+.loopend:
+
+    ld a, 0
+    ret
+.hit: 
+    ld a, 1
+    ret 
+
 
 
 
