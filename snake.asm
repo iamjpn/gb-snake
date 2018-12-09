@@ -11,6 +11,7 @@ YDIRECTION: DS 1
 UPDATEFRAME: DS 1
 SNAKELENGTH: DS 1
 RANDSEED: DS 1
+EATCOUNT: DS 1 
 
 SECTION "Inter", ROM0[$40]
 jp VBlankRAM
@@ -158,6 +159,12 @@ REPT 20
 BG_LINE = BG_LINE + 1 
 ENDR
     ; ld [$9c00 + (11 * 32) + 10 ], a 
+
+SETUPSCORE:
+    ld hl, EATCOUNT
+    ld [hl], 0
+    ld a, $07
+    ld [$9c00 + (2 * 32) + 16], a 
 
 
     ; turn on LCD
@@ -325,6 +332,11 @@ Main:
 
     ld hl, SNAKELENGTH
     inc [hl]
+
+    ld hl, EATCOUNT
+    inc [hl]
+    call WaitVramAccess
+    call UpdateScore
 
 
     ; Randomise apple position 
@@ -651,6 +663,57 @@ CheckCollision:
 .hit: 
     ld a, 1
     ret 
+
+WaitVramAccess:
+    ld hl, rSTAT
+.wait1:
+    bit 1, [hl]
+    jr z, .wait1
+.wait2:
+    bit 1, [hl]
+    jr nz, .wait2
+    ret
+
+UpdateScore:
+    ld hl, EATCOUNT 
+    ;ld a, [hl]
+    ld a, [hl]
+    ld d, a
+    ld e, 10
+    call ModDiv
+    add a, 7 ; where the numbers start
+    ld hl, $9c00 + (2 * 32) + 16 
+    ;ld [$9c00 + (BG_LINE * 32) + 10], a 
+
+    ;inc [hl]
+    ld [hl], a
+    dec hl
+    ld a, d
+    add a, 7 ; where the numbers start
+    ld [hl], a
+    ret
+
+; divides d by e
+;places the quotient in d and the remainder in a 
+; http://wikiti.brandonw.net/index.php?title=Z80_Routines:Math:Division
+ModDiv:
+   xor	a
+   ld	b, 8
+
+_loop:
+   sla	d
+   rla
+   cp	e
+   jr	c, .j 
+   sub	e
+   inc	d
+.j:   
+   dec b
+   jp nz, _loop
+   
+   ret
+
+
 
 
 
