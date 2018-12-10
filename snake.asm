@@ -62,6 +62,14 @@ REPT SnakeTilesLen
     inc bc
 ENDR
 
+    ; set up the window
+    ld bc, $9800
+    ld a, $11
+REPT $400
+    ld [bc], a
+    inc bc
+ENDR
+
 
 
 
@@ -168,7 +176,7 @@ SETUPSCORE:
 
 
     ; turn on LCD
-    ld a, LCDCF_ON | LCDCF_OBJON | LCDCF_BG8000 | LCDCF_BGON | LCDCF_BG9C00 
+    ld a, LCDCF_ON | LCDCF_OBJON | LCDCF_BG8000 | LCDCF_BGON | LCDCF_BG9C00 | LCDCF_WIN9800 | LCDCF_WINOFF
     
     ld [rLCDC], a
 
@@ -404,15 +412,15 @@ SelfCollision:
     cp a, 1
     jp nz, Main
     ld c, 0
-    call GameOver
+    jp GameOver
 
     
 DoOutOfBounds:
     ld c, 0
-    call GameOver
-    jp DoOutOfBounds
+    jp GameOver
+    ;jp DoOutOfBounds
 
-    jp Main
+    ;jp Main
 
 GameOver:
     halt
@@ -449,14 +457,21 @@ GameOver:
     ld [hli], a
 
     inc c
+    
+
+
 
     jp GameOver
 
+
+
 .erased:
-    jp .erased
+    call BlankScreen
+
+Testgo:
+    jp EntryPoint 
 
 
-    ret
 
 VBlankHandler:
     push af
@@ -712,6 +727,44 @@ _loop:
    jp nz, _loop
    
    ret
+
+BlankScreen: 
+    ld a, 0
+    ld [$ff4a], a
+    ld a, 7
+    ld [$ff4b], a
+
+    call WaitVramAccess
+    ld a, LCDCF_ON | LCDCF_OBJON | LCDCF_BG8000 | LCDCF_BGON | LCDCF_BG9C00 | LCDCF_WIN9800 | LCDCF_WINON
+    ld [rLCDC], a
+
+    ld c, 2
+
+    ld hl, $9800
+.outer:
+    ld b, $ff 
+    dec c
+    jr z, .end
+.inner:
+    halt
+    nop
+    ld d, h
+    ld e, l
+    call WaitVramAccess
+    ld h, d
+    ld l, e
+    ld a, 2
+    ld [hli], a
+    ld [hli], a
+    ld [hli], a
+    ld [hli], a
+    ;ld [$9800], a
+    dec b
+    jp nz, .inner
+    jp .outer
+
+.end:
+    ret
 
 
 
