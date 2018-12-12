@@ -13,6 +13,10 @@ SNAKELENGTH: DS 1
 RANDSEED: DS 1
 EATCOUNT: DS 1 
 
+SECTION "SAVE", SRAM, BANK[0]
+SAVESCORE: DS 1 
+VERIFY: DS 1 
+
 SECTION "Inter", ROM0[$40]
 jp VBlankRAM
 
@@ -25,6 +29,14 @@ EntryPoint:
 SECTION "Game code", ROM0[$150]
 ; Need to wait for Vblank before turning the screen off 
 Start:
+    call InitSRAM
+    ld hl, SAVESCORE
+    ld b, $ab
+    call WriteSRAM
+    ld b, $0
+    call ReadSRAM
+
+
 .waitVBlank
     ld a, [rLY]
     cp SCRN_Y    
@@ -173,6 +185,19 @@ SETUPSCORE:
     ld [hl], 0
     ld a, $07
     ld [$9c00 + (2 * 32) + 16], a 
+
+    ld a, $12
+    ld [$9c00 + (0 * 32) + 12], a 
+    ld a, $13
+    ld [$9c00 + (0 * 32) + 13], a 
+    ld a, $14
+    ld [$9c00 + (0 * 32) + 14], a 
+    ld a, $15
+    ld [$9c00 + (0 * 32) + 15], a 
+    ld a, $16
+    ld [$9c00 + (0 * 32) + 16], a 
+    ld a, $17
+    ld [$9c00 + (0 * 32) + 17], a 
 
 
     ; turn on LCD
@@ -765,6 +790,51 @@ BlankScreen:
 
 .end:
     ret
+
+InitSRAM:
+
+    ld a, $0a
+    ld [$0000], a
+    ld a, BANK(VERIFY)
+	ld [$4000], a
+    ;call EnableSRAM
+    ld a, [VERIFY]
+    cp $42 
+    jp z, .already
+    ld a, $42
+    ld [VERIFY], a
+    ld a, $ab
+    ld [SAVESCORE], a
+
+.already:
+    ;call DisableSRAM
+    ld a, $00
+    ld [$0000], a
+    ret
+
+
+; b to hl
+WriteSRAM:
+    ld a, $0a
+    ld [$0000], a
+    
+    ld [hl], b
+
+    ld a, $00
+    ld [$0000], a
+    ret
+
+; b from hl
+ReadSRAM:
+    ld a, $0a
+    ld [$0000], a
+
+    ld b, [hl] 
+
+    ld a, $00
+    ld [$0000], a
+    ret
+
 
 
 
