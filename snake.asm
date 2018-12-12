@@ -12,6 +12,7 @@ UPDATEFRAME: DS 1
 SNAKELENGTH: DS 1
 RANDSEED: DS 1
 EATCOUNT: DS 1 
+APRESSED: DS 1 
 
 SECTION "SAVE", SRAM, BANK[0]
 SAVESCORE: DS 1 
@@ -30,11 +31,11 @@ SECTION "Game code", ROM0[$150]
 ; Need to wait for Vblank before turning the screen off 
 Start:
     call InitSRAM
-    ld hl, SAVESCORE
-    ld b, $ab
-    call WriteSRAM
-    ld b, $0
-    call ReadSRAM
+    ;ld hl, SAVESCORE
+    ;ld b, $00
+    ;call WriteSRAM
+    ;ld b, $0
+    ;call ReadSRAM
 
 
 .waitVBlank
@@ -159,7 +160,7 @@ Apple:
     ld [rSCX], a
 
     ; set background
-    ld a, $1A
+    ld a, $11
     ld hl, $9c00
     ld c, 32
     ld d, 32
@@ -199,6 +200,18 @@ SETUPSCORE:
     ld a, $17
     ld [$9c00 + (0 * 32) + 17], a 
 
+    call UpdateHighScore
+    ld a, $18
+    ld [$9c00 + (6 * 32) + 12], a 
+    ld a, $19
+    ld [$9c00 + (6 * 32) + 13], a 
+    ld a, $1A
+    ld [$9c00 + (6 * 32) + 14], a 
+    ld a, $18
+    ld [$9c00 + (6 * 32) + 15], a 
+    ld a, $17
+    ld [$9c00 + (6 * 32) + 16], a 
+
 
     ; turn on LCD
     ld a, LCDCF_ON | LCDCF_OBJON | LCDCF_BG8000 | LCDCF_BGON | LCDCF_BG9C00 | LCDCF_WIN9800 | LCDCF_WINOFF
@@ -228,6 +241,13 @@ TestMult:
 SETUPSEED:
     ld a, 1 
     ld [RANDSEED], a  
+Pause: 
+    halt 
+    nop
+    call ReadInput
+    call TakeA
+    cp a, 0
+    jr z, Pause
 Main:
     halt
     nop
@@ -491,6 +511,7 @@ GameOver:
 
 
 .erased:
+    call NewHighScore
     call BlankScreen
 
 Testgo:
@@ -595,14 +616,29 @@ ReadInput:
     ld a, b
     and %00000100
     ; right
-    jr z, .done
+    jr z, .checka
     ld hl, YDIRECTION
     ld a, 0 
     add a, [HL]
-    jr nz, .done
+    jr nz, .checka
     ld [hl], -8
     ld hl, XDIRECTION
     ld [hl], 0
+
+.checka:
+    ld a, P1F_5 
+    cpl 
+    ld [rP1], a
+    ld a, [rP1]
+
+    cpl 
+    ld b, a
+
+    ld a, b
+    and %00000001
+    jr z, .done
+    ld a, 1
+    ld [APRESSED], a
 
 .done:
     ret
@@ -733,6 +769,39 @@ UpdateScore:
     ld [hl], a
     ret
 
+NewHighScore:
+    ld hl, SAVESCORE
+    call ReadSRAM
+    ld a, [EATCOUNT]
+    cp a, b
+    jr c, .end ; b > a
+    ld hl, SAVESCORE
+    ld b, a
+    call WriteSRAM
+    call UpdateHighScore
+
+
+.end:
+    ret
+
+UpdateHighScore:
+    ld hl, SAVESCORE 
+    call ReadSRAM
+    ld d, b
+    ld e, 10
+    call ModDiv
+    add a, 7 ; where the numbers start
+    ld hl, $9c00 + (8 * 32) + 16 
+    ;ld [$9c00 + (BG_LINE * 32) + 10], a 
+
+    ;inc [hl]
+    ld [hl], a
+    dec hl
+    ld a, d
+    add a, 7 ; where the numbers start
+    ld [hl], a
+    ret
+
 ; divides d by e
 ;places the quotient in d and the remainder in a 
 ; http://wikiti.brandonw.net/index.php?title=Z80_Routines:Math:Division
@@ -803,7 +872,7 @@ InitSRAM:
     jp z, .already
     ld a, $42
     ld [VERIFY], a
-    ld a, $ab
+    ld a, $00
     ld [SAVESCORE], a
 
 .already:
@@ -835,6 +904,16 @@ ReadSRAM:
     ld [$0000], a
     ret
 
+; a = 1 if 'A' pressed
+TakeA: 
+    ld a, [APRESSED] 
+    cp a, 0
+    jr z, .done
+    ld a, 0
+    ld [APRESSED], a
+    ld a, 1
+.done
+    ret
 
 
 
